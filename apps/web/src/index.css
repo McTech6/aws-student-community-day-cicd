@@ -1,0 +1,176 @@
+:root {
+  --ink: #1b1f17;
+  --muted: #6a7164;
+  --wash: #f3f1ea;
+  --panel: #fffcf7;
+  --line: #d5d0c4;
+  --line-strong: #b7b1a3;
+  --forest: #234336;
+  --forest-soft: #2f5a47;
+  --warn: #8a5a10;
+  --danger: #9b2c1f;
+  --font: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", "Consolas", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color: var(--ink);
+  background-color: var(--wash);
+  background-image:
+    linear-gradient(rgba(27, 31, 23, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(27, 31, 23, 0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
+  font-family: var(--font);
+  line-height: 1.45;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app-shell {
+  width: min(68rem, calc(100% - 2.5rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+}
+
+.app-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--ink);
+}
+
+.app-brand__mark {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.app-brand__sub {
+  margin: 0.15rem 0 0;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.app-nav {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.app-nav button {
+  padding: 0.4rem 0.7rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.app-nav button:hover {
+  color: var(--ink);
+}
+
+.app-nav button.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--forest);
+}
+
+.home-panel {
+  max-width: 36rem;
+  padding-top: 0.5rem;
+}
+
+.home-panel h1 {
+  margin: 0 0 0.65rem;
+  font-size: clamp(2.2rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.home-panel .lede {
+  margin: 0 0 1.1rem;
+  color: var(--muted);
+  font-size: 1.05rem;
+  max-width: 32ch;
+}
+
+.home-panel p {
+  margin: 0 0 0.75rem;
+}
+
+.home-panel code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  padding: 0.08em 0.28em;
+  background: #e8e4d8;
+}
+
+.home-actions {
+  margin-top: 1.25rem;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.linkish {
+  font: inherit;
+  cursor: pointer;
+}
+
+.btn-primary {
+  padding: 0.6rem 0.95rem;
+  border: 1px solid var(--forest);
+  background: var(--forest);
+  color: #f4f7f4;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: var(--forest-soft);
+  border-color: var(--forest-soft);
+}
+
+.btn-secondary {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.btn-secondary:hover {
+  border-color: var(--ink);
+}

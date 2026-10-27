@@ -1,0 +1,17 @@
+{
+  "name": "forge",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @forge/web",
+    "dev:api": "npm run dev -w @forge/api",
+    "build:web": "npm run build -w @forge/web",
+    "build:api": "npm run build -w @forge/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
