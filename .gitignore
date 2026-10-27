@@ -10,6 +10,9 @@ dist/
 .env.*
 !.env.example
 
+# Private speaker notes and plans (not for GitHub)
+notes/
+
 # Logs
 *.log
 npm-debug.log*
