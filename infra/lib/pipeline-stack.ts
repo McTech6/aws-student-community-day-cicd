@@ -216,17 +216,25 @@ export class PipelineStack extends Stack {
       RequiresCommentApproval: "FORK_PULL_REQUESTS",
       ApproverRoles: ["GITHUB_WRITE", "GITHUB_MAINTAIN", "GITHUB_ADMIN"],
     });
-    project.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "codeconnections:UseConnection",
-          "codeconnections:GetConnectionToken",
-          "codestar-connections:UseConnection",
-          "codestar-connections:GetConnectionToken",
-        ],
-        resources: [connectionArn],
-      }),
-    );
+    // CodeBuild checks this permission when the project is created, so the
+    // policy must exist first (a role's default policy is attached in parallel).
+    const connectionPolicy = new iam.Policy(this, "PullRequestChecksConnection", {
+      roles: [project.role!],
+      statements: [
+        new iam.PolicyStatement({
+          actions: [
+            "codeconnections:GetConnection",
+            "codeconnections:GetConnectionToken",
+            "codeconnections:UseConnection",
+            "codestar-connections:GetConnection",
+            "codestar-connections:GetConnectionToken",
+            "codestar-connections:UseConnection",
+          ],
+          resources: [connectionArn],
+        }),
+      ],
+    });
+    cfnProject.addDependency(connectionPolicy.node.defaultChild as iam.CfnPolicy);
   }
 }
 

@@ -109,6 +109,20 @@ describe("PipelineStack", () => {
       });
     });
 
+    it("are created only after their role may use the GitHub connection", () => {
+      const project = Object.values(template.findResources("AWS::CodeBuild::Project")).find(
+        (p) => p.Properties.Name === "forge-pr-checks",
+      )!;
+      const policies = template.findResources("AWS::IAM::Policy");
+      const connectionPolicyId = Object.keys(policies).find((id) =>
+        JSON.stringify(policies[id].Properties.PolicyDocument).includes(
+          "codeconnections:GetConnectionToken",
+        ),
+      );
+      expect(connectionPolicyId).toBeDefined();
+      expect(project.DependsOn).toContain(connectionPolicyId);
+    });
+
     it("scan for secrets before installing anything", () => {
       const project = Object.values(template.findResources("AWS::CodeBuild::Project")).find(
         (p) => p.Properties.Name === "forge-pr-checks",
