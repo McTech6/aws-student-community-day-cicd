@@ -1,0 +1,12 @@
+# gitleaks rules: the built-in set, minus generated folders.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dependencies and build output"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)cdk\.out/''',
+  '''(^|/)reports/''',
+]

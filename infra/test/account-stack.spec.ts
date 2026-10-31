@@ -47,12 +47,18 @@ describe("AccountStack", () => {
     expect(budget.Properties.NotificationsWithSubscribers).toHaveLength(3);
   });
 
-  it("lets AWS Budgets publish to the topic, and only from this account", () => {
+  it("lets Budgets, pipeline notifications and alarms publish, only from this account", () => {
     template.hasResourceProperties("AWS::SNS::TopicPolicy", {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Principal: { Service: "budgets.amazonaws.com" },
+            Principal: {
+              Service: [
+                "budgets.amazonaws.com",
+                "codestar-notifications.amazonaws.com",
+                "cloudwatch.amazonaws.com",
+              ],
+            },
             Action: "sns:Publish",
             Condition: { StringEquals: { "aws:SourceAccount": "123456789012" } },
           }),

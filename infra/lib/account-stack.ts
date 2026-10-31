@@ -6,6 +6,8 @@ import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 
+export const ALERTS_TOPIC_NAME = "forge-alerts";
+
 export interface AccountStackProps extends StackProps {
   /** SSM parameter holding the email address for alerts (kept out of the repo). */
   readonly alertEmailParameter: string;
@@ -33,16 +35,22 @@ export class AccountStack extends Stack {
     );
 
     this.alertsTopic = new sns.Topic(this, "AlertsTopic", {
-      topicName: "forge-alerts",
+      topicName: ALERTS_TOPIC_NAME,
       displayName: "Forge alerts",
       enforceSSL: true,
     });
     this.alertsTopic.addSubscription(new subscriptions.EmailSubscription(alertEmail));
 
+    // Budgets, pipeline notifications and CloudWatch alarms publish here.
+    // Other stacks import the topic by name, so they cannot add this themselves.
     this.alertsTopic.addToResourcePolicy(
       new iam.PolicyStatement({
-        sid: "AllowBudgetsToPublish",
-        principals: [new iam.ServicePrincipal("budgets.amazonaws.com")],
+        sid: "AllowAwsServicesToPublish",
+        principals: [
+          new iam.ServicePrincipal("budgets.amazonaws.com"),
+          new iam.ServicePrincipal("codestar-notifications.amazonaws.com"),
+          new iam.ServicePrincipal("cloudwatch.amazonaws.com"),
+        ],
         actions: ["sns:Publish"],
         resources: [this.alertsTopic.topicArn],
         conditions: { StringEquals: { "aws:SourceAccount": this.account } },

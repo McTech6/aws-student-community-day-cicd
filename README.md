@@ -79,10 +79,14 @@ forge/
 │               └── person.mapper.ts       DB row → API shape
 ├── packages/
 │   └── shared/               Types shared between web and api
+├── scripts/
+│   ├── smoke-test.sh         Checks a deployed environment through its URL
+│   └── secret-scan.sh        gitleaks scan, run first in every build
 └── infra/                    AWS CDK app (TypeScript)
     ├── bin/forge.ts          Entry point: which stacks exist
     ├── lib/
     │   ├── account-stack.ts  Alerts topic + cost budget (once per account)
+    │   ├── pipeline-stack.ts CodePipeline + pull request checks
     │   ├── forge-stage.ts    One environment = the four stacks below
     │   └── stacks/           network, database, api, web
     ├── test/                 Infra unit tests
@@ -200,6 +204,7 @@ deployed to **us-east-1**.
 | Stack | What it creates |
 |-------|-----------------|
 | `ForgeAccount` | `forge-alerts` SNS topic (email), `forge-monthly` $25 cost budget with alerts at 40%, 80% and forecast 100% |
+| `ForgePipeline` | The `forge` CodePipeline that deploys everything below, and the `forge-pr-checks` CodeBuild project |
 | `forge-<env>-network` | VPC over 2 AZs: public subnets (load balancer, API tasks) and private isolated subnets (database). No NAT Gateway. Security groups: CloudFront → load balancer → API → database, nothing else |
 | `forge-<env>-database` | RDS PostgreSQL 17 (`db.t4g.micro`, encrypted, not public). RDS generates the password into Secrets Manager |
 | `forge-<env>-api` | ECS Fargate service running the API image, behind an Application Load Balancer. Database credentials are injected from Secrets Manager; failed deployments roll back automatically |
@@ -219,32 +224,97 @@ flowchart LR
     sm["Secrets Manager"] -.password.-> ecs
 ```
 
-One-time setup per AWS account (needs AWS CLI credentials):
+## CI/CD pipeline
 
-```bash
-# Where alert emails go (kept in SSM, not in the repo)
-aws ssm put-parameter --region us-east-1 --name /forge/alert-email \
-  --type String --value "you@example.com"
+Everything runs on AWS; GitHub only stores the code.
 
-cd infra
-npx cdk bootstrap aws://<your-account-id>/us-east-1
-npx cdk deploy ForgeAccount
+```mermaid
+flowchart LR
+    pr["Pull request"] --> checks["CodeBuild PR checks<br/>status on the PR"]
+    checks -->|merge| src["Source<br/>push to main"]
+    src --> build["Build<br/>secret scan, lint, typecheck,<br/>test, audit, build, cdk synth"]
+    build --> self["UpdatePipeline<br/>pipeline updates itself"]
+    self --> assets["Assets<br/>Docker image to ECR,<br/>web files"]
+    assets --> stg["Staging<br/>deploy + smoke test"]
+    stg --> appr{"Approval<br/>(email)"}
+    appr --> prod["Production<br/>deploy + smoke test"]
 ```
 
-Then confirm the subscription email from AWS Notifications.
+- **Pull request checks** (`forge-pr-checks`): the same gates as the
+  pipeline plus a Docker build, on every pull request into `main`. Pull
+  requests from forks only run after a maintainer comments on them.
+- **Build**: if any gate fails, nothing is deployed. Test results appear
+  under *Reports* in the CodeBuild console.
+- **Self-mutation**: change `infra/lib/pipeline-stack.ts`, push, and the
+  pipeline updates itself before deploying.
+- **Build once, deploy many**: one Docker image and one web build go to
+  both environments.
+- **Database migrations** run when a new API container starts
+  (`prisma migrate deploy`), before it accepts traffic. If they fail, the
+  container never gets healthy and ECS rolls back.
+- **Notifications**: emails to `forge-alerts` when a run fails, succeeds,
+  or waits for approval.
 
-Deploy a staging environment by hand (the pipeline does this for you
-later). Takes 20–30 minutes the first time and costs roughly $1.50–2 per
-day while it runs, so destroy it when you're done:
+### Set it up in your own AWS account
+
+You need the AWS CLI signed in, Node 22, and a fork of this repo. Running
+both environments costs roughly $3–4 per day, so tear down when you're
+done (see below).
+
+1. **Bootstrap CDK and create the alerts topic**
+
+   ```bash
+   # Where alert emails go (kept in SSM, not in the repo)
+   aws ssm put-parameter --region us-east-1 --name /forge/alert-email \
+     --type String --value "you@example.com"
+
+   npm ci && npm run build:web    # CDK needs apps/web/dist to synthesize
+   cd infra
+   npx cdk bootstrap aws://<your-account-id>/us-east-1
+   npx cdk deploy ForgeAccount
+   ```
+
+   Confirm the subscription email from AWS Notifications.
+
+2. **Connect GitHub**: in the AWS console, open *Developer Tools → Settings
+   → Connections*, create a GitHub connection, install the *AWS Connector
+   for GitHub* app on your fork only, and wait for status *Available*.
+   Then store its ARN:
+
+   ```bash
+   aws ssm put-parameter --region us-east-1 --name /forge/github-connection-arn \
+     --type String --value "<connection-arn>"
+   ```
+
+3. **Point the pipeline at your fork**: set `forge:repository` in
+   `infra/cdk.json` to `<your-github-user>/<your-fork>`, commit and push.
+
+4. **Deploy the pipeline, once**
+
+   ```bash
+   cd infra
+   npx cdk deploy ForgePipeline
+   ```
+
+   It starts immediately. The first run takes 30–40 minutes (RDS and
+   CloudFront are slow to create). Approve the production step in the
+   CodePipeline console, or from the email link.
+
+From then on, every push to `main` goes through the pipeline. Open a pull
+request to see the checks report back on GitHub.
+
+### Tear down
 
 ```bash
-npm run build:web             # from the repo root; CDK uploads apps/web/dist
 cd infra
-npx cdk deploy 'ForgeStaging/*'
-# prints forge-staging-web.SiteUrl = https://<id>.cloudfront.net
-
-npx cdk destroy 'ForgeStaging/*'
+npx cdk destroy 'ForgePipeline/Production/*' 'ForgePipeline/Staging/*'
+npx cdk destroy ForgePipeline
+npx cdk destroy ForgeAccount      # optional: keeps the budget alerts if you skip it
 ```
+
+Destroying the pipeline does not remove the environments it deployed, so
+the first command comes first. Deleting RDS takes about 10 minutes. Check
+*Billing → Bills* the next day.
 
 Useful commands, from `infra/`: `npx cdk synth` (generate CloudFormation),
 `npx cdk diff` (preview changes), `npm test` (infra unit tests).
@@ -308,4 +378,5 @@ Use fake data only, e.g. `someone@forge.test`.
 - [ ] Projects API + UI
 - [ ] Tasks API + UI
 - [ ] Use `packages/shared` types in both apps
-- [ ] CI/CD on AWS (CodeBuild, CodePipeline, ECS Fargate, RDS, S3 + CloudFront, all as CDK code)
+- [x] CI/CD on AWS (CodeBuild, CodePipeline, ECS Fargate, RDS, S3 + CloudFront, all as CDK code)
+- [ ] Alarms that roll back a bad release automatically
