@@ -77,8 +77,13 @@ forge/
 │               ├── dto/create-person.dto.ts  Input validation rules
 │               ├── person.ts              API Person type
 │               └── person.mapper.ts       DB row → API shape
-└── packages/
-    └── shared/               Types shared between web and api
+├── packages/
+│   └── shared/               Types shared between web and api
+└── infra/                    AWS CDK app (TypeScript)
+    ├── bin/forge.ts          Entry point: which stacks exist
+    ├── lib/                  Stack definitions
+    ├── test/                 Infra unit tests
+    └── cdk.json              CDK settings and feature flags
 ```
 
 ### How a request flows
@@ -181,6 +186,33 @@ the non-root `node` user. Instead of `DATABASE_URL` it also accepts
 | `npm run typecheck` | TypeScript checks for both apps |
 | `npm test` | Unit tests (Vitest) for both apps |
 | `npm run ci` | Everything the pipeline runs: lint, typecheck, test, audit, build |
+
+---
+
+## Infrastructure (AWS CDK)
+
+Everything in AWS is defined as TypeScript in `infra/` (AWS CDK v2) and
+deployed to **us-east-1**.
+
+| Stack | What it creates |
+|-------|-----------------|
+| `ForgeAccount` | `forge-alerts` SNS topic (email), `forge-monthly` $25 cost budget with alerts at 40%, 80% and forecast 100% |
+
+One-time setup per AWS account (needs AWS CLI credentials):
+
+```bash
+# Where alert emails go (kept in SSM, not in the repo)
+aws ssm put-parameter --region us-east-1 --name /forge/alert-email \
+  --type String --value "you@example.com"
+
+cd infra
+npx cdk bootstrap aws://<your-account-id>/us-east-1
+npx cdk deploy ForgeAccount
+```
+
+Then confirm the subscription email from AWS Notifications. Useful
+commands, from `infra/`: `npx cdk synth` (generate CloudFormation),
+`npx cdk diff` (preview changes), `npm test` (infra unit tests).
 
 ---
 

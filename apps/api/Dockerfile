@@ -18,10 +18,13 @@ WORKDIR /app
 
 # ---- prod-deps: only runtime dependencies, plus the generated Prisma client -
 FROM base AS prod-deps
+# npm ci checks every workspace listed in the lockfile, so all their
+# package.json files are needed even though only the api is installed.
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
+COPY infra/package.json infra/
 # The schema must be present before install: the api's postinstall runs
 # `prisma generate`, and Prisma downloads its engines during install.
 COPY apps/api/prisma apps/api/prisma
@@ -34,6 +37,7 @@ COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
+COPY infra/package.json infra/
 COPY apps/api/prisma apps/api/prisma
 RUN npm ci --no-audit --no-fund -w @forge/api
 COPY apps/api apps/api
