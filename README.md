@@ -60,6 +60,8 @@ forge/
 │   │           ├── peopleApi.ts        fetch calls to the API
 │   │           └── types.ts            Frontend types
 │   └── api/                  Backend (NestJS)
+│       ├── Dockerfile                  Multi-stage image for ECS
+│       ├── docker-entrypoint.sh        Migrate, then start the API
 │       ├── prisma/
 │       │   ├── schema.prisma           Person, Project, Task models
 │       │   ├── migrations/             Generated SQL
@@ -151,6 +153,22 @@ npm run dev:web   # http://localhost:3000
 Check http://localhost:3001/api/health returns `{"ok":true,...}`, then open
 http://localhost:3000.
 
+### Run the API in Docker
+
+This is the same image that runs in AWS (ECS Fargate). Build it from the
+repo root:
+
+```bash
+docker build -f apps/api/Dockerfile -t forge-api .
+docker run --rm --network host \
+  -e DATABASE_URL="postgresql://forge:forge@localhost:5432/forge" forge-api
+```
+
+On start the container runs `prisma migrate deploy`, then starts the API as
+the non-root `node` user. Instead of `DATABASE_URL` it also accepts
+`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` and `DB_SSLMODE`
+(default `require`), which is how ECS passes the RDS secret.
+
 ### Scripts
 
 | Command (from root) | What it does |
@@ -159,6 +177,10 @@ http://localhost:3000.
 | `npm run dev:api` | Start the API in watch mode |
 | `npm run build:web` | Build the frontend to `apps/web/dist` |
 | `npm run build:api` | Build the API to `apps/api/dist` |
+| `npm run lint` | ESLint, zero warnings allowed |
+| `npm run typecheck` | TypeScript checks for both apps |
+| `npm test` | Unit tests (Vitest) for both apps |
+| `npm run ci` | Everything the pipeline runs: lint, typecheck, test, audit, build |
 
 ---
 
