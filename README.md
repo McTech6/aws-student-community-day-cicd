@@ -2,8 +2,8 @@
 
 Forge is a small internal tool for a (fake) studio. It tracks **people**,
 **projects** and **tasks**. It is a full-stack TypeScript app: a React
-frontend talks to a NestJS API, which stores data in Postgres (Neon) through
-Prisma.
+frontend talks to a NestJS API, which stores data in PostgreSQL through
+Prisma. Locally the database runs in Docker; in AWS it will be Amazon RDS.
 
 **Status:** the **People** feature works end to end (list, add, remove).
 Projects and Tasks exist in the database schema and seed data, but have no
@@ -15,20 +15,23 @@ API routes or UI yet.
 
 ```
 Browser  →  apps/web   (React + Vite)        http://localhost:3000
-               ↓  HTTP JSON
-            apps/api   (NestJS)              http://localhost:3001
+               ↓  /api/* (Vite dev proxy)
+            apps/api   (NestJS)              http://localhost:3001/api
                ↓  Prisma
-            Neon       (Postgres)
+            PostgreSQL (Docker, compose.yaml) localhost:5432
 ```
+
+The web app always calls the relative path `/api`. Locally the Vite dev
+server forwards it to the API; in AWS, CloudFront will do the same job.
 
 ## Tech stack
 
 | Layer | Tools |
 |-------|-------|
 | Frontend | React 19, Vite 6, TypeScript |
-| Backend | NestJS 10, class-validator, TypeScript |
-| Database | PostgreSQL on Neon, Prisma 6 |
-| Repo | npm workspaces (monorepo) |
+| Backend | NestJS 11, class-validator, TypeScript |
+| Database | PostgreSQL 17, Prisma 6 |
+| Repo | npm workspaces (monorepo), Node 22 (`.nvmrc`) |
 
 ---
 
@@ -37,7 +40,9 @@ Browser  →  apps/web   (React + Vite)        http://localhost:3000
 ```
 forge/
 ├── package.json              npm workspaces + run scripts
-├── .env.example              Env variable names (copy to apps/api/.env)
+├── compose.yaml              Local PostgreSQL in Docker
+├── .env.example              Env variables (copy to apps/api/.env)
+├── .nvmrc                    Node version (22)
 ├── .gitignore                Ignores node_modules, dist, .env
 ├── apps/
 │   ├── web/                  Frontend (React + Vite)
@@ -62,7 +67,7 @@ forge/
 │       └── src/
 │           ├── main.ts                 Starts the server, CORS, validation
 │           ├── app.module.ts           Root module
-│           ├── health.controller.ts    GET /health
+│           ├── health.controller.ts    GET /api/health
 │           ├── prisma/                 Shared Prisma database client
 │           └── people/
 │               ├── people.controller.ts   HTTP routes
@@ -79,7 +84,7 @@ forge/
 Adding a person:
 
 1. `PersonForm` calls `addPerson` from the `usePeopleRoster` hook.
-2. `peopleApi.ts` sends `POST /people` with JSON.
+2. `peopleApi.ts` sends `POST /api/people` with JSON.
 3. NestJS validates the body against `CreatePersonDto` (400 if invalid).
 4. `PeopleService` trims and lowercases the email and saves it with Prisma.
 5. A duplicate email hits the database `UNIQUE` index and becomes a 409.
@@ -91,8 +96,8 @@ Adding a person:
 
 ### Requirements
 
-- Node.js 20 or newer
-- A Neon (Postgres) database
+- Node.js 22 (see `.nvmrc`; `nvm use` picks it up)
+- Docker with Docker Compose (for the local database)
 
 ### 1. Install
 
@@ -106,43 +111,44 @@ npm install
 cp .env.example apps/api/.env
 ```
 
-Fill in your Neon connection strings in `apps/api/.env`:
+The defaults work as they are with the local Docker database:
 
 | Name | Where | Purpose |
 |------|-------|---------|
-| `DATABASE_URL` | `apps/api/.env` | Neon **pooled** host (contains `-pooler`). Used by the running API. |
-| `DIRECT_URL` | `apps/api/.env` | Same database, **direct** host (no `-pooler`). Used by `prisma migrate`. |
-| `VITE_API_URL` | `apps/web/.env` | Optional. API base URL for the web app. Defaults to `http://localhost:3001`. |
+| `DATABASE_URL` | `apps/api/.env` | Postgres connection string. Defaults to the local Docker database. |
+| `CORS_ORIGINS` | `apps/api/.env` | Optional. Comma-separated origins allowed to call the API directly. Defaults to `http://localhost:3000`. |
+| `PORT` | `apps/api/.env` | Optional. API port. Defaults to `3001`. |
+| `VITE_API_URL` | `apps/web/.env` | Optional. API base URL for the web app. Defaults to `/api` (same origin). |
 
 `.env` files are gitignored. Never commit real connection strings.
 
-### 3. Set up the database
+### 3. Start and set up the database
 
 ```bash
+docker compose up -d          # PostgreSQL on localhost:5432
 cd apps/api
-npx prisma migrate dev
-npx prisma db seed
+npx prisma migrate deploy     # create the tables
+npx prisma db seed            # sample data
+cd ../..
 ```
 
 The seed adds three people, one project and one task. Running it twice does
-not create duplicates.
-
-Neon sleeps when idle. If you get "can't reach database server", wait a few
-seconds and try again.
+not create duplicates. Stop the database with `docker compose down`; add `-v`
+to also delete its data.
 
 ### 4. Run
 
 Use two terminals, both from the project root:
 
 ```bash
-npm run dev:api   # http://localhost:3001
+npm run dev:api   # http://localhost:3001/api
 ```
 
 ```bash
 npm run dev:web   # http://localhost:3000
 ```
 
-Check http://localhost:3001/health returns `{"ok":true,...}`, then open
+Check http://localhost:3001/api/health returns `{"ok":true,...}`, then open
 http://localhost:3000.
 
 ### Scripts
@@ -160,12 +166,16 @@ http://localhost:3000.
 
 | Method | Path | Success | Errors |
 |--------|------|---------|--------|
-| GET | `/health` | 200 | |
-| GET | `/people` | 200, list of people | |
-| POST | `/people` | 201, the new person | 400 invalid body, 409 duplicate email |
-| DELETE | `/people/:id` | 204, no body | 404 unknown id |
+All routes are under `/api`.
 
-**Validation rules for `POST /people`:**
+| Method | Path | Success | Errors |
+|--------|------|---------|--------|
+| GET | `/api/health` | 200 | |
+| GET | `/api/people` | 200, list of people | |
+| POST | `/api/people` | 201, the new person | 400 invalid body, 409 duplicate email |
+| DELETE | `/api/people/:id` | 204, no body | 404 unknown id |
+
+**Validation rules for `POST /api/people`:**
 
 - `name`: 2–80 characters
 - `email`: valid email, stored trimmed and lowercased (`ADA@forge.test` is
@@ -175,13 +185,14 @@ http://localhost:3000.
 Example:
 
 ```bash
-curl -s -X POST http://localhost:3001/people \
+curl -s -X POST http://localhost:3001/api/people \
   -H "Content-Type: application/json" \
   -d '{"name":"Ada","email":"ada@forge.test"}'
 ```
 
-The API only accepts browser requests from http://localhost:3000 (CORS in
-`apps/api/src/main.ts`).
+Browsers normally reach the API through the same origin (`/api`), so CORS
+doesn't come into play. For direct cross-origin calls, the API only allows
+the origins in `CORS_ORIGINS` (see `apps/api/src/main.ts`).
 
 ---
 
@@ -208,4 +219,4 @@ Use fake data only, e.g. `someone@forge.test`.
 - [ ] Projects API + UI
 - [ ] Tasks API + UI
 - [ ] Use `packages/shared` types in both apps
-- [ ] Deploy (web to Cloudflare Pages, API host TBD)
+- [ ] CI/CD on AWS (CodeBuild, CodePipeline, ECS Fargate, RDS, S3 + CloudFront, all as CDK code)

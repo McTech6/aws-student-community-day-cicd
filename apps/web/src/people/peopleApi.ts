@@ -1,6 +1,6 @@
 import type { Person, PersonDraft, PersonId } from "./types";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 const UNREACHABLE = "Could not reach the Forge API. Is it running?";
 const UNKNOWN_FAILURE = "Something went wrong. Try again.";

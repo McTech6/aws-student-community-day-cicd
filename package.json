@@ -12,6 +12,10 @@
     "build:api": "npm run build -w @forge/api"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
+  },
+  "overrides": {
+    "multer": "2.5.0",
+    "deepmerge-ts": "^8.0.2"
   }
 }
