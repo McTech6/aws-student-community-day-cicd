@@ -1,4 +1,4 @@
-import { Stack, type StackProps } from "aws-cdk-lib";
+import { Stack, type StackProps, Validations } from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import type { Construct } from "constructs";
 
@@ -31,6 +31,10 @@ export class NetworkStack extends Stack {
 
   constructor(scope: Construct, id: string, props: NetworkStackProps) {
     super(scope, id, props);
+    Validations.of(this).acknowledge({
+      id: "CloudFormation-Validate::W3010",
+      reason: "AZs are pinned on purpose; see availabilityZones above",
+    });
 
     this.vpc = new ec2.Vpc(this, "Vpc", {
       maxAzs: 2,

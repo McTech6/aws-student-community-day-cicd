@@ -1,7 +1,7 @@
 # Forge: Building a CI/CD Pipeline on AWS
 
 Companion repo for the talk **"Building a CI/CD Pipeline on AWS"** at AWS
-Student Community Day.
+Student Community Day-IUC by Tidding Ramsey BInda.
 
 Forge is a small full-stack app (React + NestJS + PostgreSQL). This guide
 takes you from an empty laptop to the same setup shown in the talk, **in
@@ -682,7 +682,7 @@ git switch -c show-my-name
 Open `apps/web/src/App.tsx` and change the text under the logo:
 
 ```tsx
-<p className="app-brand__sub">REZA Path</p>
+<p className="app-brand__sub">Your Path</p>
 ```
 
 to your name:

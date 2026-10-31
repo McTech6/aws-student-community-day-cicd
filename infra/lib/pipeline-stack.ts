@@ -234,7 +234,7 @@ export class PipelineStack extends Stack {
         }),
       ],
     });
-    cfnProject.addDependency(connectionPolicy.node.defaultChild as iam.CfnPolicy);
+    cfnProject.addResourceDependency(connectionPolicy.node.defaultChild as iam.CfnPolicy);
   }
 }
 
