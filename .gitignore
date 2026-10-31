@@ -5,6 +5,8 @@ node_modules/
 dist/
 *.tsbuildinfo
 cdk.out/
+# CDK lookup cache; contains the AWS account ID
+cdk.context.json
 
 # Environment variables (secrets)
 .env

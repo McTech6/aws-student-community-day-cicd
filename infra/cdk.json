@@ -10,6 +10,8 @@
     "forge:region": "us-east-1",
     "forge:alertEmailParameter": "/forge/alert-email",
     "forge:monthlyBudgetUsd": 25,
+    "forge:cloudFrontPrefixListId": "pl-3b927c52",
+    "@aws-cdk/core:defaultCrossStackReferences": "weak",
     "@aws-cdk/aws-signer:signingProfileNamePassedToCfn": true,
     "@aws-cdk/core:newStyleStackSynthesis": true,
     "@aws-cdk/core:stackRelativeExports": true,

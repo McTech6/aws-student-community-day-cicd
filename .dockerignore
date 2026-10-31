@@ -1,10 +1,16 @@
-# Keep the build context small and secrets out of every image.
+# Allow-list: only what apps/api/Dockerfile copies. CDK also uses this file
+# to fingerprint the image, so README or infra edits don't rebuild the API.
+*
+!package.json
+!package-lock.json
+!apps/api
+!apps/web/package.json
+!packages/shared/package.json
+!infra/package.json
+
+# Never, even inside the folders above. Keeps secrets out of every image.
 **/node_modules
 **/dist
 **/.env
 **/.env.*
-!**/.env.example
-.git
-notes
-infra/cdk.out
 **/*.log

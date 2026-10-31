@@ -81,7 +81,10 @@ forge/
 │   └── shared/               Types shared between web and api
 └── infra/                    AWS CDK app (TypeScript)
     ├── bin/forge.ts          Entry point: which stacks exist
-    ├── lib/                  Stack definitions
+    ├── lib/
+    │   ├── account-stack.ts  Alerts topic + cost budget (once per account)
+    │   ├── forge-stage.ts    One environment = the four stacks below
+    │   └── stacks/           network, database, api, web
     ├── test/                 Infra unit tests
     └── cdk.json              CDK settings and feature flags
 ```
@@ -197,6 +200,24 @@ deployed to **us-east-1**.
 | Stack | What it creates |
 |-------|-----------------|
 | `ForgeAccount` | `forge-alerts` SNS topic (email), `forge-monthly` $25 cost budget with alerts at 40%, 80% and forecast 100% |
+| `forge-<env>-network` | VPC over 2 AZs: public subnets (load balancer, API tasks) and private isolated subnets (database). No NAT Gateway. Security groups: CloudFront → load balancer → API → database, nothing else |
+| `forge-<env>-database` | RDS PostgreSQL 17 (`db.t4g.micro`, encrypted, not public). RDS generates the password into Secrets Manager |
+| `forge-<env>-api` | ECS Fargate service running the API image, behind an Application Load Balancer. Database credentials are injected from Secrets Manager; failed deployments roll back automatically |
+| `forge-<env>-web` | Private S3 bucket with the React build, and one CloudFront URL that serves the site and forwards `/api/*` to the load balancer |
+
+The four `forge-<env>-*` stacks form one environment (`ForgeStage` in
+`infra/lib/forge-stage.ts`); the pipeline deploys it as `staging`, then
+`production`.
+
+```mermaid
+flowchart LR
+    user["Browser"] -->|HTTPS| cf["CloudFront"]
+    cf -->|"/*"| s3["S3 (private)<br/>React build"]
+    cf -->|"/api/*"| alb["Load balancer<br/>(CloudFront only)"]
+    alb --> ecs["ECS Fargate<br/>NestJS API"]
+    ecs --> rds[("RDS PostgreSQL<br/>private subnets")]
+    sm["Secrets Manager"] -.password.-> ecs
+```
 
 One-time setup per AWS account (needs AWS CLI credentials):
 
@@ -210,8 +231,22 @@ npx cdk bootstrap aws://<your-account-id>/us-east-1
 npx cdk deploy ForgeAccount
 ```
 
-Then confirm the subscription email from AWS Notifications. Useful
-commands, from `infra/`: `npx cdk synth` (generate CloudFormation),
+Then confirm the subscription email from AWS Notifications.
+
+Deploy a staging environment by hand (the pipeline does this for you
+later). Takes 20–30 minutes the first time and costs roughly $1.50–2 per
+day while it runs, so destroy it when you're done:
+
+```bash
+npm run build:web             # from the repo root; CDK uploads apps/web/dist
+cd infra
+npx cdk deploy 'ForgeStaging/*'
+# prints forge-staging-web.SiteUrl = https://<id>.cloudfront.net
+
+npx cdk destroy 'ForgeStaging/*'
+```
+
+Useful commands, from `infra/`: `npx cdk synth` (generate CloudFormation),
 `npx cdk diff` (preview changes), `npm test` (infra unit tests).
 
 ---
