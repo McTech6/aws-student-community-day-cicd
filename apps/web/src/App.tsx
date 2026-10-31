@@ -40,9 +40,9 @@ export default function App() {
             Fake studio data for real practice: people, then API, then database.
           </p>
           <p>
-            This UI is <strong>React</strong> with Vite. Week 5 is the People
-            roster on mock data. Nest and Neon come later. Hall still lives in{" "}
-            <code>spin-up/</code>.
+            The People page is <strong>React</strong> talking to a{" "}
+            <strong>NestJS</strong> API and a <strong>PostgreSQL</strong>{" "}
+            database. Every change reaches AWS through a CI/CD pipeline.
           </p>
           <div className="home-actions">
             <button

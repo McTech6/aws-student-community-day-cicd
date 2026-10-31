@@ -1,0 +1,3 @@
+# LF everywhere: shell scripts with Windows line endings fail in Linux
+# containers and CodeBuild.
+* text=auto eol=lf
